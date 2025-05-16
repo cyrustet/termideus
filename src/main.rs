@@ -3,7 +3,7 @@ use actix_files::Files;
 use serde::{Deserialize,Serialize};
 use std::process::{Command};
 use std::sync::{ Mutex};
-
+use std::env;
 #[derive(Deserialize,Serialize)]
 
 struct CommandRequest {
@@ -86,6 +86,8 @@ struct  AppState {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
+    let port = env::var("PORT").unwrap_or("8080".to_string());
+    let addr = format!("0.0.0.0:{}", port);
 
     println!("....Starting TerminaDeus as port: 8080");
 
@@ -102,7 +104,7 @@ async fn main() -> std::io::Result<()> {
         .route("/terminal",web::get().to(termideus_page))
         .route("/api/execute", web::post().to(execute_command))
     })
-    .bind("127.0.0.1:8080")?
+    .bind(addr)?
     .run()
     .await
 }
