@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termideus - Rust Terminal</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #222;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        #terminal {
+            background-color: #000;
+            border-radius: 5px;
+            padding: 10px;
+            height: 70vh;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+        #command-form {
+            display: flex;
+        }
+        #command-input {
+            flex-grow: 1;
+            background-color: #333;
+            border: 1px solid #555;
+            padding: 8px;
+            color: #f0f0f0;
+            font-family: monospace;
+        }
+        #submit-button {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .prompt {
+            color: #4CAF50;
+        }
+        .output {
+            color: #f0f0f0;
+        }
+        .error {
+            color: #F44336;
+        }
+        #login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            background-color: #222;
+            border: 1px solid #555;
+            color: #f0f0f0;
+            font-family: monospace;
+        }
+        #login-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-container">
+        <h2>Termideus Login</h2>
+        <div class="form-group">
+            <label for="password-input">Password:</label>
+            <input type="password" id="password-input" placeholder="Enter terminal password">
+        </div>
+        <button id="login-button">Access Terminal</button>
+    </div>
+
+    <div id="terminal-container" class="hidden">
+        <h1>Termideus - Rust Terminal</h1>
+        <div id="terminal">
+            <span class="prompt">Welcome to Termideus Terminal!</span>
+            <span class="output">
+Type commands below to execute them. Try 'rustc --version' or 'cargo --version' to check Rust installation.
+            </span>
+        </div>
+        
+        <form id="command-form">
+            <input type="text" id="command-input" placeholder="Enter command..." autocomplete="off">
+            <button type="submit" id="submit-button">Execute</button>
+        </form>
+    </div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const commandForm = document.getElementById('command-form');
+        const commandInput = document.getElementById('command-input');
+        const loginContainer = document.getElementById('login-container');
+        const terminalContainer = document.getElementById('terminal-container');
+        const passwordInput = document.getElementById('password-input');
+        const loginButton = document.getElementById('login-button');
+        
+        let password = '';
+        
+        // Command history functionality
+        let commandHistory = [];
+        let historyIndex = -1;
+        
+        // Handle login
+        loginButton.addEventListener('click', () => {
+            password = passwordInput.value.trim();
+            if (password) {
+                loginContainer.classList.add('hidden');
+                terminalContainer.classList.remove('hidden');
+                commandInput.focus();
+                
+                // Add login confirmation to terminal
+                addToTerminal('Authentication successful. Terminal unlocked.', 'output');
+            }
+        });
+        
+        // Allow login with Enter key
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                loginButton.click();
+                e.preventDefault();
+            }
+        });
+        
+        function addToTerminal(text, className) {
+            const element = document.createElement('div');
+            element.className = className;
+            element.textContent = text;
+            terminal.appendChild(element);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        
+        commandForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const command = commandInput.value.trim();
+            if (!command) return;
+            
+            // Add to history
+            commandHistory.push(command);
+            historyIndex = commandHistory.length;
+            
+            // Display command
+            addToTerminal(`$ ${command}`, 'prompt');
+            
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        command,
+                        password // Include password with every command
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.output) {
+                    addToTerminal(result.output, 'output');
+                }
+                
+                if (result.error) {
+                    addToTerminal(result.error, 'error');
+                }
+            } catch (error) {
+                addToTerminal(`Failed to execute command: ${error.message}`, 'error');
+            }
+            
+            commandInput.value = '';
+        });
+        
+        // Handle up/down arrows for command history
+        commandInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    commandInput.value = commandHistory[historyIndex];
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    commandInput.value = commandHistory[historyIndex];
+                } else {
+                    historyIndex = commandHistory.length;
+                    commandInput.value = '';
+                }
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
